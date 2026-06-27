@@ -1,0 +1,28 @@
+# Config (contains personal paths — never commit)
+config.yaml
+
+# Logs
+*.log
+photoflow.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# HuggingFace model cache
+.cache/
+
+# macOS
+.DS_Store
+
+# Scratch / output (these live on your machine, not in git)
+scratch/
+processed/
+_review/

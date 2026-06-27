@@ -1,0 +1,90 @@
+# PhotoFlow Configuration
+# Copy this to config.yaml and fill in your values.
+
+paths:
+  # Local scratch space on Ubuntu for downloading and processing.
+  # Make sure you have at least 2x the size of your Takeout zips free here.
+  scratch: "/mnt/scratch/photoflow"
+
+  # Where the processed, Plex-ready photos will be copied (your NAS mount point).
+  nas_output: "/mnt/synology/Photos"
+
+  # Where flagged/questionable photos go instead of being deleted.
+  review: "/mnt/scratch/photoflow/_review"
+
+download:
+  # Direct download URL for the Google Takeout zip.
+  # Can also be passed as --url on the command line.
+  url: ""
+
+  # If Google splits your export into multiple zips, list all URLs here.
+  # Leave as empty list if using a single url above.
+  extra_urls: []
+
+  # Directory inside scratch where zips are saved.
+  zip_dir: "zips"
+
+  # Resume partial downloads (uses wget with --continue).
+  resumable: true
+
+extract:
+  # Directory inside scratch where zips are extracted.
+  output_dir: "extracted"
+
+metadata:
+  # Path to exiftool binary (install via: sudo apt install libimage-exiftool-perl)
+  exiftool_path: "exiftool"
+
+  # Supported media extensions to process.
+  extensions:
+    - jpg
+    - jpeg
+    - png
+    - mp4
+    - mov
+    - heic
+
+filter:
+  # AI model for NSFW / sensitive content detection.
+  # Uses AdamCodd/vit-base-nsfw-detector from HuggingFace (downloaded on first run, ~350MB).
+  nsfw_model: "AdamCodd/vit-base-nsfw-detector"
+
+  # Score thresholds (0.0 - 1.0). Photos scoring above these go to review.
+  nsfw_threshold: 0.65
+
+  # Blurriness detection: photos with Laplacian variance below this are flagged as blurry/empty.
+  blur_threshold: 80.0
+
+  # Minimum file size in KB. Tiny files (thumbnails, icons) are excluded.
+  min_size_kb: 50
+
+  # Review subdirectories for each flag type.
+  review_dirs:
+    nsfw: "_review/flagged_sensitive"
+    blurry: "_review/flagged_blurry"
+    tiny: "_review/flagged_low_quality"
+
+moments:
+  # Maximum hours between photos to consider them part of the same "moment".
+  time_gap_hours: 6
+
+  # Maximum distance in kilometers between photos to group by location.
+  # Only applies if GPS data is present.
+  distance_km: 5.0
+
+  # Minimum number of photos to form a named moment. Solo photos go into a date folder.
+  min_cluster_size: 3
+
+  # Output folder name format. Uses Python strftime codes.
+  # Example: "2024/2024-07-04 - Austin TX" or "2024/2024-07-04" if no location.
+  folder_date_format: "%Y-%m-%d"
+
+copy:
+  # Use rsync for robust, resumable copy. Falls back to shutil if rsync not available.
+  use_rsync: true
+
+  # Delete source files after successful copy (set to false to keep originals in scratch).
+  delete_after_copy: false
+
+  # Number of parallel copy workers.
+  workers: 4

@@ -1,0 +1,16 @@
+# PhotoFlow dependencies
+# Install with: pip install -r requirements.txt
+
+# Core
+PyYAML>=6.0
+
+# Image processing
+Pillow>=10.0
+opencv-python-headless>=4.8
+
+# AI filtering (NSFW detection)
+transformers>=4.40
+torch>=2.0          # CPU-only is fine; install GPU version separately if desired
+
+# Progress bars
+tqdm>=4.66
