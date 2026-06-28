@@ -81,21 +81,30 @@ def group_into_moments(config: dict) -> None:
     log.info(f"Grouped {placed} files into {len(clusters)} moment folders in: {processed_dir}")
 
 
-def _read_exif_batch(exiftool: str, paths: list[Path]) -> list[dict]:
-    """Use exiftool's JSON output to batch-read metadata efficiently."""
-    result = subprocess.run(
-        [exiftool, "-json", "-DateTimeOriginal", "-GPSLatitude", "-GPSLongitude",
-         "-n",  # numeric GPS values
-         *[str(p) for p in paths]],
-        capture_output=True, text=True
-    )
+EXIFTOOL_BATCH_SIZE = 500  # Stay well under OS arg limit
 
+
+def _read_exif_batch(exiftool: str, paths: list[Path]) -> list[dict]:
+    """Use exiftool JSON output to batch-read metadata, avoiding arg list limits."""
     raw = []
-    if result.returncode == 0 and result.stdout.strip():
-        try:
-            raw = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            log.warning("Could not parse exiftool JSON output; using filename dates.")
+    total = len(paths)
+
+    for i in range(0, total, EXIFTOOL_BATCH_SIZE):
+        batch = paths[i:i + EXIFTOOL_BATCH_SIZE]
+        log.info(f"  Reading EXIF: {min(i + EXIFTOOL_BATCH_SIZE, total)}/{total}")
+
+        result = subprocess.run(
+            [exiftool, "-json", "-DateTimeOriginal", "-GPSLatitude", "-GPSLongitude",
+             "-n",  # numeric GPS values
+             *[str(p) for p in batch]],
+            capture_output=True, text=True
+        )
+
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                raw.extend(json.loads(result.stdout))
+            except json.JSONDecodeError:
+                log.warning(f"Could not parse exiftool JSON for batch at {i}; skipping.")
 
     meta_by_path = {item.get("SourceFile"): item for item in raw}
 
