@@ -13,19 +13,31 @@ paths:
   review: "/mnt/scratch/photoflow/_review"
 
 download:
-  # Direct download URL for the Google Takeout zip.
-  # Can also be passed as --url on the command line.
-  url: ""
+  # Download method: "rclone" (private, OAuth) or "wget" (direct URL)
+  # rclone is recommended — no public link needed, authenticates via Google OAuth.
+  method: "rclone"
 
-  # If Google splits your export into multiple zips, list all URLs here.
-  # Leave as empty list if using a single url above.
+  # --- rclone settings (used when method: rclone) ---
+  # Name of the rclone remote you configured with: rclone config
+  rclone_remote: "google"
+
+  # Path to your Takeout zip inside Google Drive.
+  # Find it in Drive under: Takeout/ (Google creates it after export)
+  rclone_path: "Takeout/takeout-20240101T000000Z-001.zip"
+
+  # If Google split your export into multiple zips, list the rest here.
+  rclone_paths: []
+  # rclone_paths:
+  #   - "Takeout/takeout-20240101T000000Z-002.zip"
+  #   - "Takeout/takeout-20240101T000000Z-003.zip"
+
+  # --- wget settings (used when method: wget) ---
+  # Only needed if you prefer a direct download URL instead of rclone.
+  url: ""
   extra_urls: []
 
   # Directory inside scratch where zips are saved.
   zip_dir: "zips"
-
-  # Resume partial downloads (uses wget with --continue).
-  resumable: true
 
 extract:
   # Directory inside scratch where zips are extracted.

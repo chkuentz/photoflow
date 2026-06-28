@@ -18,8 +18,22 @@ Automates the full journey from a raw Google Takeout export to a clean, organize
 ### System packages (Ubuntu)
 ```bash
 sudo apt update
-sudo apt install wget rsync libimage-exiftool-perl
+sudo apt install rclone rsync libimage-exiftool-perl
 ```
+
+### Authorize rclone with Google (one-time setup)
+This lets PhotoFlow download directly from your private Google Drive — no public link needed.
+
+```bash
+rclone config
+```
+Walk through the prompts:
+- Choose `n` for new remote
+- Name it `google`
+- Choose `Google Drive`
+- Follow the OAuth browser flow to authorize your account
+
+> **Tip:** Run `rclone ls google:Takeout/` after setup to confirm it can see your Takeout folder.
 
 ### Python packages
 Ubuntu 23.04+ protects the system Python, so use a virtual environment:
@@ -55,7 +69,9 @@ nano config.yaml   # Fill in your paths and download URL
 | `paths.scratch` | `/mnt/scratch/photoflow` | Local working directory (needs ~2x zip size free) |
 | `paths.nas_output` | `/mnt/synology/Photos` | NAS mount point for final output |
 | `paths.review` | `/mnt/scratch/photoflow/_review` | Where flagged photos are moved |
-| `download.url` | `https://...` | Direct download URL from Google Takeout |
+| `download.method` | `rclone` | `rclone` (private OAuth) or `wget` (direct URL) |
+| `download.rclone_remote` | `google` | Name of your rclone remote (set during `rclone config`) |
+| `download.rclone_path` | `Takeout/takeout-001.zip` | Path to zip inside Google Drive |
 
 ---
 
@@ -82,13 +98,25 @@ python3 photoflow.py --url "https://your-takeout-download-link"
 ```
 
 ### Multiple Takeout zips (split exports)
-Google often splits large exports into multiple zips. List all URLs in `config.yaml`:
+Google often splits large exports across multiple zips. List all paths in `config.yaml`:
 ```yaml
 download:
-  url: "https://...takeout-part1.zip"
+  method: "rclone"
+  rclone_remote: "google"
+  rclone_path: "Takeout/takeout-20240101T000000Z-001.zip"
+  rclone_paths:
+    - "Takeout/takeout-20240101T000000Z-002.zip"
+    - "Takeout/takeout-20240101T000000Z-003.zip"
+```
+
+### Using a direct download URL instead (wget)
+If you prefer a public/signed URL:
+```yaml
+download:
+  method: "wget"
+  url: "https://your-takeout-download-link"
   extra_urls:
-    - "https://...takeout-part2.zip"
-    - "https://...takeout-part3.zip"
+    - "https://part2-link"
 ```
 
 ---
