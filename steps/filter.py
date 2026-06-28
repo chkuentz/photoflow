@@ -10,6 +10,7 @@ Uses:
   - AdamCodd/vit-base-nsfw-detector (HuggingFace ViT, ~350MB, free, local)
 """
 
+import gc
 import logging
 import shutil
 from pathlib import Path
@@ -112,6 +113,10 @@ def filter_photos(config: dict) -> None:
                 "low-q": flagged["tiny"],
             })
 
+            # Force GC every 500 images to prevent memory accumulation
+            if (kept + sum(flagged.values())) % 500 == 0:
+                gc.collect()
+
     log.info(
         f"Filter complete: {kept} kept | "
         f"{flagged['nsfw']} sensitive | "
@@ -133,6 +138,9 @@ def _check_image(
     size_kb = img_path.stat().st_size / 1024
     if size_kb < min_size_kb:
         return "tiny"
+
+    img = None
+    pil_img = None
 
     try:
         cv2 = _load_cv2()
@@ -163,6 +171,14 @@ def _check_image(
 
     except Exception as e:
         log.warning(f"Filter error for {img_path.name}: {e}")
+
+    finally:
+        # Explicitly release image memory — prevents leak over 30k images
+        if img is not None:
+            del img
+        if pil_img is not None:
+            pil_img.close()
+            del pil_img
 
     return None
 
