@@ -17,6 +17,7 @@ import logging
 import math
 import shutil
 import subprocess
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -208,10 +209,17 @@ def _cluster_by_time_and_location(
     return clusters
 
 
+# Cache geocode results: round to ~5km grid to maximise hits
+_geocode_cache: dict[tuple, str | None] = {}
+_last_geocode_time: float = 0.0
+_GEOCODE_GRID = 0.05   # ~5km rounding
+_GEOCODE_RATE  = 1.05  # seconds between Nominatim calls (their limit is 1/s)
+
+
 def _name_cluster(cluster: list[dict], date_fmt: str, min_cluster_size: int) -> str:
     """
     Generate a human-readable folder name for a moment cluster.
-    Tries to reverse-geocode the location using nominatim (free, no API key).
+    Tries to reverse-geocode the location using Nominatim (free, no API key).
     Falls back to date-only name.
     """
     anchor = cluster[0]
@@ -219,9 +227,8 @@ def _name_cluster(cluster: list[dict], date_fmt: str, min_cluster_size: int) -> 
     date_str = dt.strftime(date_fmt)
 
     if len(cluster) >= min_cluster_size and anchor["lat"] and anchor["lon"]:
-        location = _reverse_geocode(anchor["lat"], anchor["lon"])
+        location = _reverse_geocode_cached(anchor["lat"], anchor["lon"])
         if location:
-            # Sanitize for filesystem
             safe_loc = "".join(c if c.isalnum() or c in " -," else "" for c in location)
             safe_loc = safe_loc.strip().rstrip(",")
             return f"{date_str} - {safe_loc}"
@@ -229,10 +236,31 @@ def _name_cluster(cluster: list[dict], date_fmt: str, min_cluster_size: int) -> 
     return date_str
 
 
+def _reverse_geocode_cached(lat: float, lon: float) -> str | None:
+    """Cached wrapper around _reverse_geocode. Rounds coords to a ~5km grid."""
+    global _last_geocode_time
+
+    key = (round(lat / _GEOCODE_GRID) * _GEOCODE_GRID,
+           round(lon / _GEOCODE_GRID) * _GEOCODE_GRID)
+
+    if key in _geocode_cache:
+        return _geocode_cache[key]
+
+    # Rate-limit: Nominatim allows max 1 request/second
+    elapsed = time.monotonic() - _last_geocode_time
+    if elapsed < _GEOCODE_RATE:
+        time.sleep(_GEOCODE_RATE - elapsed)
+
+    result = _reverse_geocode(lat, lon)
+    _last_geocode_time = time.monotonic()
+    _geocode_cache[key] = result
+    return result
+
+
 def _reverse_geocode(lat: float, lon: float) -> str | None:
     """
     Reverse geocode using Nominatim (OpenStreetMap), free and no API key required.
-    Returns a short location string like "Austin TX" or None on failure.
+    Returns a short location string like "Austin, TX" or None on failure.
     """
     try:
         import urllib.request
@@ -247,7 +275,7 @@ def _reverse_geocode(lat: float, lon: float) -> str | None:
         url = f"https://nominatim.openstreetmap.org/reverse?{params}"
         req = urllib.request.Request(url, headers={"User-Agent": "PhotoFlow/1.0"})
 
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
 
         addr = data.get("address", {})
@@ -257,7 +285,6 @@ def _reverse_geocode(lat: float, lon: float) -> str | None:
         if city:
             parts.append(city)
         if state:
-            # Abbreviate US states
             parts.append(_us_state_abbr(state) or state)
         return ", ".join(parts) if parts else None
 
