@@ -22,9 +22,15 @@ sudo apt install wget rsync libimage-exiftool-perl
 ```
 
 ### Python packages
+Ubuntu 23.04+ protects the system Python, so use a virtual environment:
+
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+> **Note:** Run `source .venv/bin/activate` each time you open a new terminal before running PhotoFlow.
 
 > **Note:** The AI filtering model (`AdamCodd/vit-base-nsfw-detector`, ~350MB) is downloaded from HuggingFace automatically on first run.
 
