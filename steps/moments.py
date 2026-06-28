@@ -21,6 +21,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from tqdm import tqdm
+
 log = logging.getLogger(__name__)
 
 
@@ -64,19 +66,24 @@ def group_into_moments(config: dict) -> None:
 
     # Name and write clusters to processed/
     placed = 0
-    for cluster in clusters:
-        folder_name = _name_cluster(cluster, date_fmt, min_cluster_size)
-        year = (cluster[0]["datetime"] or datetime.now(tz=timezone.utc)).strftime("%Y")
-        dest_dir = processed_dir / year / folder_name
-        dest_dir.mkdir(parents=True, exist_ok=True)
+    total_files = sum(len(c) for c in clusters)
 
-        for item in cluster:
-            src = item["path"]
-            dest = dest_dir / src.name
-            if dest.exists():
-                dest = dest_dir / f"{src.stem}_{src.stat().st_ino}{src.suffix}"
-            shutil.copy2(str(src), str(dest))
-            placed += 1
+    with tqdm(total=total_files, desc="Grouping into moments", unit="file", dynamic_ncols=True) as pbar:
+        for cluster in clusters:
+            folder_name = _name_cluster(cluster, date_fmt, min_cluster_size)
+            year = (cluster[0]["datetime"] or datetime.now(tz=timezone.utc)).strftime("%Y")
+            dest_dir = processed_dir / year / folder_name
+            dest_dir.mkdir(parents=True, exist_ok=True)
+
+            for item in cluster:
+                src = item["path"]
+                dest = dest_dir / src.name
+                if dest.exists():
+                    dest = dest_dir / f"{src.stem}_{src.stat().st_ino}{src.suffix}"
+                shutil.copy2(str(src), str(dest))
+                placed += 1
+                pbar.update(1)
+                pbar.set_postfix({"moment": folder_name[:30]})
 
     log.info(f"Grouped {placed} files into {len(clusters)} moment folders in: {processed_dir}")
 

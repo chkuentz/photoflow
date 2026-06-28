@@ -14,6 +14,8 @@ import logging
 import shutil
 from pathlib import Path
 
+from tqdm import tqdm
+
 log = logging.getLogger(__name__)
 
 # Lazy imports so the pipeline can still run other steps if these aren't installed
@@ -85,16 +87,30 @@ def filter_photos(config: dict) -> None:
     flagged = {"nsfw": 0, "blurry": 0, "tiny": 0}
     kept = 0
 
-    for img_path in media_files:
-        reason = _check_image(
-            img_path, blur_threshold, nsfw_threshold, min_size_kb, nsfw_pipe
-        )
-        if reason:
-            dest_dir = review_dirs.get(reason, review_dirs["nsfw"])
-            _move_to_review(img_path, dest_dir)
-            flagged[reason] = flagged.get(reason, 0) + 1
-        else:
-            kept += 1
+    with tqdm(
+        total=len(media_files),
+        desc="Filtering",
+        unit="img",
+        dynamic_ncols=True,
+    ) as pbar:
+        for img_path in media_files:
+            reason = _check_image(
+                img_path, blur_threshold, nsfw_threshold, min_size_kb, nsfw_pipe
+            )
+            if reason:
+                dest_dir = review_dirs.get(reason, review_dirs["nsfw"])
+                _move_to_review(img_path, dest_dir)
+                flagged[reason] = flagged.get(reason, 0) + 1
+            else:
+                kept += 1
+
+            pbar.update(1)
+            pbar.set_postfix({
+                "kept": kept,
+                "sensitive": flagged["nsfw"],
+                "blurry": flagged["blurry"],
+                "low-q": flagged["tiny"],
+            })
 
     log.info(
         f"Filter complete: {kept} kept | "
